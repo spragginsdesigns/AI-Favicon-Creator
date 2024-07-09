@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Favicon Generator</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -83,14 +84,45 @@
     </div>
 
     <script>
-        const API_ENDPOINT = 'https://api.openai.com/v1/images/generations';
+        const CHAT_API_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+        const IMAGE_API_ENDPOINT = 'https://api.openai.com/v1/images/generations';
 
         // Load API key from localStorage if available
         document.getElementById('apiKey').value = localStorage.getItem('openaiApiKey') || '';
 
+        async function generateFaviconPrompt(apiKey, userPrompt, style, color) {
+            const messages = [
+                { role: "system", content: "You are an expert designer specializing in creating unique and professional favicons. Your task is to generate a detailed prompt for DALL-E 3 to create a favicon based on the user's input." },
+                {
+                    role: "user", content: `Create a detailed prompt for a favicon with the following characteristics:
+                        - Core concept: ${userPrompt}
+                        - Style: ${style}
+                        - Color scheme: ${color}
+
+                        The prompt should be specific, creative, and result in a unique favicon that is recognizable at small sizes. Include details about shapes, symbols, and design elements that would make an effective favicon.` }
+            ];
+
+            try {
+                const response = await axios.post(CHAT_API_ENDPOINT, {
+                    model: "gpt-4o",
+                    messages: messages
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                return response.data.choices[0].message.content;
+            } catch (error) {
+                console.error('Error generating favicon prompt:', error);
+                throw error;
+            }
+        }
+
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const prompt = document.getElementById('prompt').value;
+            const userPrompt = document.getElementById('prompt').value;
             const style = document.getElementById('style').value;
             const color = document.getElementById('color').value;
             const format = document.getElementById('format').value;
@@ -102,7 +134,7 @@
                 return;
             }
 
-            if (!prompt) {
+            if (!userPrompt) {
                 resultDiv.innerHTML = '<p class="text-red-400 font-medium">Please enter a prompt.</p>';
                 return;
             }
@@ -112,11 +144,14 @@
 
             resultDiv.innerHTML = '<div class="flex items-center justify-center space-x-2"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div><p class="text-blue-300">Generating favicon...</p></div>';
 
-            const systemPrompt = `Create a professional, high-quality favicon image based on the following description. The favicon should be clear and recognizable even at small sizes. Style: ${style}. Color scheme: ${color}. The favicon should represent: ${prompt}. Ensure the design is simple, memorable, and scalable. Do not include any text unless specifically requested in the prompt. The image should have a transparent background and be optimized for web use.`;
-
             try {
-                const response = await axios.post(API_ENDPOINT, {
-                    prompt: systemPrompt,
+                // Generate a detailed prompt using GPT-4o
+                const detailedPrompt = await generateFaviconPrompt(apiKey, userPrompt, style, color);
+
+                // Use DALL-E 3 to generate the image
+                const imageResponse = await axios.post(IMAGE_API_ENDPOINT, {
+                    model: "dall-e-3",
+                    prompt: detailedPrompt,
                     n: 1,
                     size: "1024x1024",
                     response_format: "url"
@@ -127,18 +162,18 @@
                     }
                 });
 
-                const imageUrl = response.data.data[0].url;
+                const imageUrl = imageResponse.data.data[0].url;
                 resultDiv.innerHTML = `
-                    <img src="${imageUrl}" alt="Generated Favicon" class="mx-auto mb-6 rounded-lg w-40 h-40 shadow-lg">
-                    <div class="space-y-4">
-                        <a href="${imageUrl}" download="favicon.${format}" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
-                            Download Favicon
-                        </a>
-                        <button id="regenerateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                            Regenerate
-                        </button>
-                    </div>
-                `;
+                        <img src="${imageUrl}" alt="Generated Favicon" class="mx-auto mb-6 rounded-lg w-64 h-64 shadow-lg">
+                        <div class="space-y-4">
+                            <a href="${imageUrl}" target="_blank" rel="noopener noreferrer" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                                Open Favicon in New Tab
+                            </a>
+                            <button id="regenerateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                                Regenerate
+                            </button>
+                        </div>
+                    `;
 
                 document.getElementById('regenerateBtn').addEventListener('click', () => {
                     document.getElementById('generateBtn').click();
