@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Favicon Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-gray-900 to-blue-900 text-white min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-xl space-y-8">
+        <h1 class="text-4xl font-bold text-center text-blue-300">Advanced Favicon Generator</h1>
+        <div class="bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-lg rounded-lg p-8 space-y-6 shadow-xl">
+            <div class="space-y-2">
+                <label for="apiKey" class="block text-sm font-medium text-blue-200">OpenAI API Key</label>
+                <input id="apiKey" type="password" placeholder="Enter your OpenAI API Key"
+                    class="w-full bg-gray-700 text-white placeholder-gray-400 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+            </div>
+
+            <div class="space-y-2">
+                <label for="prompt" class="block text-sm font-medium text-blue-200">Favicon Description</label>
+                <input id="prompt" type="text" placeholder="Enter your prompt for favicon generation"
+                    class="w-full bg-gray-700 text-white placeholder-gray-400 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label for="style" class="block text-sm font-medium text-blue-200">Style</label>
+                    <select id="style"
+                        class="w-full bg-gray-700 text-white rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+                        <option value="minimalist">Minimalist</option>
+                        <option value="flat">Flat</option>
+                        <option value="3d">3D</option>
+                        <option value="sketch">Sketch</option>
+                        <option value="pixel art">Pixel Art</option>
+                        <option value="gradient">Gradient</option>
+                        <option value="isometric">Isometric</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <label for="color" class="block text-sm font-medium text-blue-200">Color Scheme</label>
+                    <select id="color"
+                        class="w-full bg-gray-700 text-white rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+                        <option value="vibrant">Vibrant</option>
+                        <option value="pastel">Pastel</option>
+                        <option value="monochrome">Monochrome</option>
+                        <option value="gradient">Gradient</option>
+                        <option value="neon">Neon</option>
+                        <option value="earth tones">Earth Tones</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label for="format" class="block text-sm font-medium text-blue-200">Format</label>
+                <select id="format"
+                    class="w-full bg-gray-700 text-white rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+                    <option value="png">.png</option>
+                    <option value="ico">.ico</option>
+                    <option value="svg">.svg</option>
+                </select>
+            </div>
+
+            <button id="generateBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                Generate Favicon
+            </button>
+        </div>
+
+        <div id="result"
+            class="bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-lg rounded-lg p-8 text-center hidden space-y-4 shadow-xl">
+            <!-- Results will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        const API_ENDPOINT = 'https://api.openai.com/v1/images/generations';
+
+        // Load API key from localStorage if available
+        document.getElementById('apiKey').value = localStorage.getItem('openaiApiKey') || '';
+
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const prompt = document.getElementById('prompt').value;
+            const style = document.getElementById('style').value;
+            const color = document.getElementById('color').value;
+            const format = document.getElementById('format').value;
+            const resultDiv = document.getElementById('result');
+            resultDiv.classList.remove('hidden');
+
+            if (!apiKey) {
+                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Please enter your OpenAI API key.</p>';
+                return;
+            }
+
+            if (!prompt) {
+                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Please enter a prompt.</p>';
+                return;
+            }
+
+            // Save API key to localStorage
+            localStorage.setItem('openaiApiKey', apiKey);
+
+            resultDiv.innerHTML = '<div class="flex items-center justify-center space-x-2"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div><p class="text-blue-300">Generating favicon...</p></div>';
+
+            const systemPrompt = `Create a professional, high-quality favicon image based on the following description. The favicon should be clear and recognizable even at small sizes. Style: ${style}. Color scheme: ${color}. The favicon should represent: ${prompt}. Ensure the design is simple, memorable, and scalable. Do not include any text unless specifically requested in the prompt. The image should have a transparent background and be optimized for web use.`;
+
+            try {
+                const response = await axios.post(API_ENDPOINT, {
+                    prompt: systemPrompt,
+                    n: 1,
+                    size: "1024x1024",
+                    response_format: "url"
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const imageUrl = response.data.data[0].url;
+                resultDiv.innerHTML = `
+                    <img src="${imageUrl}" alt="Generated Favicon" class="mx-auto mb-6 rounded-lg w-40 h-40 shadow-lg">
+                    <div class="space-y-4">
+                        <a href="${imageUrl}" download="favicon.${format}" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                            Download Favicon
+                        </a>
+                        <button id="regenerateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                            Regenerate
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('regenerateBtn').addEventListener('click', () => {
+                    document.getElementById('generateBtn').click();
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Error generating favicon. Please check your API key and try again.</p>';
+            }
+        });
+    </script>
+</body>
+
+</html>
