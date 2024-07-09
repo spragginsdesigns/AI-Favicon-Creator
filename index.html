@@ -9,7 +9,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -62,13 +61,18 @@
             </div>
 
             <div class="space-y-2">
-                <label for="format" class="block text-sm font-medium text-blue-200">Format</label>
-                <select id="format"
+                <label for="size" class="block text-sm font-medium text-blue-200">Image Size</label>
+                <select id="size"
                     class="w-full bg-gray-700 text-white rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
-                    <option value="png">.png</option>
-                    <option value="ico">.ico</option>
-                    <option value="svg">.svg</option>
+                    <option value="1024x1024">Square (1024x1024)</option>
+                    <option value="1024x1792">Portrait (1024x1792)</option>
+                    <option value="1792x1024">Landscape (1792x1024)</option>
                 </select>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <input type="checkbox" id="hdQuality" class="rounded text-blue-500 focus:ring-blue-500">
+                <label for="hdQuality" class="text-sm text-blue-200">Generate HD Quality</label>
             </div>
 
             <button id="generateBtn"
@@ -99,7 +103,8 @@
                         - Style: ${style}
                         - Color scheme: ${color}
 
-                        The prompt should be specific, creative, and result in a unique favicon that is recognizable at small sizes. Include details about shapes, symbols, and design elements that would make an effective favicon.` }
+                        The prompt should be specific, creative, and result in a unique favicon that is recognizable at small sizes. Include details about shapes, symbols, and design elements that would make an effective favicon.`
+                }
             ];
 
             try {
@@ -125,35 +130,29 @@
             const userPrompt = document.getElementById('prompt').value;
             const style = document.getElementById('style').value;
             const color = document.getElementById('color').value;
-            const format = document.getElementById('format').value;
+            const size = document.getElementById('size').value;
+            const hdQuality = document.getElementById('hdQuality').checked;
             const resultDiv = document.getElementById('result');
             resultDiv.classList.remove('hidden');
 
-            if (!apiKey) {
-                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Please enter your OpenAI API key.</p>';
+            if (!apiKey || !userPrompt) {
+                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Please enter both an API key and a prompt.</p>';
                 return;
             }
 
-            if (!userPrompt) {
-                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Please enter a prompt.</p>';
-                return;
-            }
-
-            // Save API key to localStorage
             localStorage.setItem('openaiApiKey', apiKey);
 
             resultDiv.innerHTML = '<div class="flex items-center justify-center space-x-2"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div><p class="text-blue-300">Generating favicon...</p></div>';
 
             try {
-                // Generate a detailed prompt using GPT-4o
                 const detailedPrompt = await generateFaviconPrompt(apiKey, userPrompt, style, color);
 
-                // Use DALL-E 3 to generate the image
                 const imageResponse = await axios.post(IMAGE_API_ENDPOINT, {
                     model: "dall-e-3",
                     prompt: detailedPrompt,
                     n: 1,
-                    size: "1024x1024",
+                    size: size,
+                    quality: hdQuality ? "hd" : "standard",
                     response_format: "url"
                 }, {
                     headers: {
@@ -163,24 +162,33 @@
                 });
 
                 const imageUrl = imageResponse.data.data[0].url;
+                const revisedPrompt = imageResponse.data.data[0].revised_prompt;
+
                 resultDiv.innerHTML = `
-                        <img src="${imageUrl}" alt="Generated Favicon" class="mx-auto mb-6 rounded-lg w-64 h-64 shadow-lg">
-                        <div class="space-y-4">
-                            <a href="${imageUrl}" target="_blank" rel="noopener noreferrer" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
-                                Open Favicon in New Tab
-                            </a>
-                            <button id="regenerateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                                Regenerate
-                            </button>
-                        </div>
-                    `;
+                    <img src="${imageUrl}" alt="Generated Favicon" class="mx-auto mb-6 rounded-lg w-64 h-64 shadow-lg">
+                    <p class="text-sm text-blue-300 mb-4">Revised Prompt: ${revisedPrompt}</p>
+                    <div class="space-y-4">
+                        <a href="${imageUrl}" target="_blank" rel="noopener noreferrer" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                            Open Favicon in New Tab
+                        </a>
+                        <button id="regenerateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md px-6 py-3 transition duration-300 ease-in-out inline-block transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                            Regenerate
+                        </button>
+                    </div>
+                `;
 
                 document.getElementById('regenerateBtn').addEventListener('click', () => {
                     document.getElementById('generateBtn').click();
                 });
             } catch (error) {
                 console.error('Error:', error);
-                resultDiv.innerHTML = '<p class="text-red-400 font-medium">Error generating favicon. Please check your API key and try again.</p>';
+                let errorMessage = 'Error generating favicon. Please check your API key and try again.';
+                if (error.response) {
+                    errorMessage += ` Status: ${error.response.status}. ${error.response.data.error.message}`;
+                } else if (error.message) {
+                    errorMessage += ` ${error.message}`;
+                }
+                resultDiv.innerHTML = `<p class="text-red-400 font-medium">${errorMessage}</p>`;
             }
         });
     </script>
